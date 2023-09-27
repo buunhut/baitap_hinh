@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model comments {
+  cId         Int      @id @default(autoincrement())
+  content     String   @db.Text
+  dateComment DateTime @db.Date
+  iId         Int
+  uId         Int
+  sta         Boolean  @default(true)
+  images      images   @relation(fields: [iId], references: [iId], onDelete: NoAction, onUpdate: NoAction, map: "comments_ibfk_1")
+  users       users    @relation(fields: [uId], references: [uId], onDelete: NoAction, onUpdate: NoAction, map: "comments_ibfk_2")
+
+  @@index([iId], map: "iId")
+  @@index([uId], map: "uId")
+}
+
+model saved {
+  sId      Int      @id @default(autoincrement())
+  dateSave DateTime @db.Date
+  iId      Int
+  uId      Int
+  sta      Boolean  @default(true)
+  images   images   @relation(fields: [iId], references: [iId], onDelete: NoAction, onUpdate: NoAction, map: "saved_ibfk_1")
+  users    users    @relation(fields: [uId], references: [uId], onDelete: NoAction, onUpdate: NoAction, map: "saved_ibfk_2")
+
+  @@index([iId], map: "iId")
+  @@index([uId], map: "uId")
+}
+
+model users {
+  uId      Int        @id @default(autoincrement())
+  email    String?    @db.VarChar(255)
+  pass     String     @db.VarChar(100)
+  fullName String     @db.VarChar(100)
+  age      String?    @db.VarChar(4)
+  avatar   String?    @db.Text
+  sta      Boolean    @default(true)
+  comments comments[]
+  images   images[]
+  saved    saved[]
+}
+
+model images {
+  iId      Int        @id @default(autoincrement())
+  tenHinh  String     @db.VarChar(255)
+  moTa     String?    @db.Text
+  url      String     @db.Text
+  dateUp   DateTime   @db.Date
+  uId      Int
+  sta      Boolean?   @default(true)
+  comments comments[]
+  users    users      @relation(fields: [uId], references: [uId], onDelete: NoAction, onUpdate: NoAction, map: "images_ibfk_1")
+  saved    saved[]
+
+  @@index([uId], map: "uId")
+}
