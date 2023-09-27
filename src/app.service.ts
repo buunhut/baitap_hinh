@@ -13,6 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@prisma/client';
 import { MyService } from './app.jwt';
 import * as bcrypt from 'bcryptjs';
+import * as moment from 'moment';
 
 const prisma = new PrismaClient();
 
@@ -73,7 +74,7 @@ export class AppService {
   //đăng ký
   async signup(data: UserDto, file: Express.Multer.File) {
     let { email, pass, fullName, age } = data;
-    let hashedPassword = await bcrypt.hash(pass, 10)
+    let hashedPassword = await bcrypt.hash(pass, 10);
     let avatar = '';
     if (file) {
       avatar = file.filename;
@@ -127,13 +128,16 @@ export class NguoiDungService {
           uId,
           sta: true,
         },
+        select: {
+          uId: true,
+          email: true,
+          fullName: true,
+          age: true,
+          avatar: true,
+        },
       });
       if (user) {
-        const data = {
-          ...user,
-          pass: 'secret key :)',
-        };
-        return response(200, 'thông tin user', data);
+        return response(200, 'thông tin user', user);
       } else {
         return response(404, 'not found', null);
       }
@@ -145,7 +149,7 @@ export class NguoiDungService {
   //cập nhật thông tin user
   async editUser(uId: number, edit: EditUserDto, file: Express.Multer.File) {
     let { pass, fullName, age } = edit;
-    let hashedPassword = await bcrypt.hash(pass, 10)
+    let hashedPassword = await bcrypt.hash(pass, 10);
     let data = {};
     if (file) {
       const avatar = file.filename;
@@ -224,13 +228,12 @@ export class HinhAnhService {
           users: {
             select: {
               uId: true,
-              email: true,
               fullName: true,
-              age: true,
             },
           },
           comments: {
             select: {
+              cId: true,
               content: true,
               dateComment: true,
               users: {
@@ -244,7 +247,33 @@ export class HinhAnhService {
         },
       });
       if (listhinhAnh.length > 0) {
-        return response(200, 'danh sách hình ảnh', listhinhAnh);
+        const res = listhinhAnh.map((item) => {
+          const { iId, tenHinh, url, moTa, dateUp, users, comments } = item;
+          const { uId, fullName } = users;
+          const mapComments = comments.map((item) => {
+            const { cId, content, dateComment } = item;
+            const { uId, fullName } = item.users;
+            return {
+              cId,
+              content,
+              dateComment: moment(dateComment).format('DD/MM/YYYY'),
+              uId,
+              fullName,
+            };
+          });
+          return {
+            iId,
+            tenHinh,
+            url,
+            moTa,
+            dateUp: moment(dateUp).format('DD/MM/YYYY'),
+            uId,
+            fullName,
+            comments: mapComments,
+          };
+        });
+
+        return response(200, 'danh sách hình ảnh', res);
       } else {
         return response(404, 'not found', null);
       }
@@ -267,16 +296,9 @@ export class HinhAnhService {
           url: true,
           moTa: true,
           dateUp: true,
-          // users: {
-          //   select: {
-          //     uId: true,
-          //     email: true,
-          //     fullName: true,
-          //     age: true,
-          //   },
-          // },
           comments: {
             select: {
+              cId: true,
               content: true,
               dateComment: true,
               users: {
@@ -290,7 +312,30 @@ export class HinhAnhService {
         },
       });
       if (hinhAnh.length > 0) {
-        return response(200, 'danh sách hình', hinhAnh);
+        const res = hinhAnh.map((item) => {
+          const { iId, tenHinh, url, moTa, dateUp, comments } = item;
+          const mapComments = comments.map((item) => {
+            const { cId, content, dateComment, users } = item;
+            const { uId, fullName } = users;
+            return {
+              cId,
+              content,
+              dateComment: moment(dateComment).format('DD/MM/YYYY'),
+              uId,
+              fullName,
+            };
+          });
+
+          return {
+            iId,
+            tenHinh,
+            url,
+            moTa,
+            dateUp: moment(dateUp).format('DD/MM/YYYY'),
+            comments: mapComments,
+          };
+        });
+        return response(200, 'danh sách hình', res);
       } else {
         return response(404, 'not found', null);
       }
@@ -314,6 +359,7 @@ export class HinhAnhService {
           iId: true,
           dateUp: true,
           tenHinh: true,
+          moTa: true,
           url: true,
           users: {
             select: {
@@ -340,7 +386,32 @@ export class HinhAnhService {
         },
       });
       if (detail) {
-        return response(200, 'thông tin chi tiết', detail);
+        const { iId, tenHinh, dateUp, url, moTa } = detail;
+        const { uId, fullName } = detail.users;
+        const { comments } = detail;
+        const mapComments = comments.map((item) => {
+          const { cId, content, dateComment } = item;
+          const { uId, fullName } = item.users;
+          return {
+            cId,
+            content,
+            dateComment: moment(dateComment).format('DD/MM/YYYY'),
+            uId,
+            fullName,
+          };
+        });
+        const res = {
+          iId,
+          tenHinh,
+          dateUp: moment(dateUp).format('DD/MM/YYYY'),
+          url,
+          moTa,
+          uId,
+          fullName,
+          comments: mapComments,
+        };
+
+        return response(200, 'thông tin chi tiết', res);
       } else {
         return response(404, 'not found', null);
       }
@@ -387,19 +458,25 @@ export class HinhAnhService {
           images: {
             select: {
               tenHinh: true,
+              url: true,
+              moTa: true,
             },
           },
         },
-        // include: {
-        //   images: {
-        //     select: {
-        //       tenHinh: true,
-        //     },
-        //   },
-        // },
       });
       if (listSaved.length > 0) {
-        return response(200, 'danh sách ảnh đã lưu', listSaved);
+        const res = listSaved.map((item) => {
+          const { sId, dateSave } = item;
+          const { tenHinh, url, moTa } = item.images;
+          return {
+            sId,
+            dateSave: moment(dateSave).format('DD/MM/YYYY'),
+            tenHinh,
+            url,
+            moTa,
+          };
+        });
+        return response(200, 'danh sách ảnh đã lưu', res);
       } else {
         return response(404, 'not found', null);
       }
@@ -418,7 +495,17 @@ export class HinhAnhService {
         },
       });
       if (result.length > 0) {
-        return response(200, 'kết quả tìm kiếm', result);
+        const res = result.map((item) => {
+          const {iId, tenHinh, url, moTa, dateUp} = item
+          return {
+            iId, 
+            tenHinh, 
+            url, 
+            moTa, 
+            dateUp: moment(dateUp).format('DD/MM/YYYY')
+          }
+        })
+        return response(200, 'kết quả tìm kiếm', res);
       } else {
         return response(404, 'not found', null);
       }
@@ -433,35 +520,34 @@ export class HinhAnhService {
       let uId = await this.myService.getUserId(token);
       const check = await prisma.images.findFirst({
         where: {
-          iId, 
-          uId, 
-          sta: true
-        }
-      })
-      if(check){
+          iId,
+          uId,
+          sta: true,
+        },
+      });
+      if (check) {
         const update = await prisma.images.updateMany({
           data: edit,
           where: {
             iId,
             uId,
-            sta: true
-          }
-        })
-        if(update){
+            sta: true,
+          },
+        });
+        if (update) {
           const data = {
             ...check,
             ...edit,
-          }
-          return response(200, 'đã cập nhật', data)
+          };
+          return response(200, 'đã cập nhật', data);
         } else {
-          return response(500, 'lỗi rồi ku', null)
+          return response(500, 'lỗi rồi ku', null);
         }
       } else {
-        return response(404, 'not found', null)
+        return response(404, 'not found', null);
       }
-
     } catch (error) {
-      throw error
+      throw error;
     }
   }
 
@@ -486,7 +572,7 @@ export class HinhAnhService {
           },
         });
         if (xoaHinh) {
-          return response(200, 'đã xoá', checkiId);
+          return response(200, 'đã xoá hình', null);
         } else {
           return response(500, 'lỗi rồi ku', null);
         }
@@ -528,14 +614,44 @@ export class CommentsService {
   //get bình luận theo id ảnh
   async getBinhLuan(iId: number) {
     try {
-      const comment = await prisma.comments.findMany({
+      const result = await prisma.images.findFirst({
         where: {
           iId,
           sta: true,
         },
+        select: {
+          tenHinh: true,
+          url: true,
+          comments: {
+            select: {
+              cId: true,
+              content: true,
+              dateComment: true,
+              users: {
+                select: {
+                  uId: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+        },
       });
-      if (comment.length > 0) {
-        return response(200, 'list comment', comment);
+      if (result) {
+        const { tenHinh, url, comments } = result;
+        const mapComments = comments.map((item) => {
+          const { cId, content, dateComment, users } = item;
+          const { uId, fullName } = users;
+          return {
+            cId,
+            content,
+            dateComment: moment(dateComment).format('DD/MM/YYYY'),
+            uId,
+            fullName,
+          };
+        });
+        const res = { iId, tenHinh, url, comments: mapComments };
+        return response(200, 'list comment', res);
       } else {
         return response(404, 'not found', null);
       }
@@ -606,7 +722,7 @@ export class CommentsService {
           },
         });
         if (xoaBinhLuan) {
-          return response(200, 'đã xoá bình luận', checkCId);
+          return response(200, 'đã xoá bình luận', null);
         } else {
           return response(500, 'lỗi rồi ku', null);
         }
