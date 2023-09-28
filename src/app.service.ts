@@ -434,7 +434,21 @@ export class HinhAnhService {
         data,
       });
       if (savedAnh) {
-        return response(200, 'đã lưu ảnh', savedAnh);
+        const { iId } = save;
+        const info = await prisma.images.findFirst({
+          where: {
+            iId,
+            sta: true,
+          },
+        });
+        const { url, tenHinh } = info;
+        const res = {
+          iId,
+          url,
+          tenHinh,
+          dateSave: moment(dateSave).format('DD/MM/YYYY'),
+        };
+        return response(200, 'đã lưu ảnh', res);
       } else {
         return response(500, 'lỗi rồi ku', null);
       }
@@ -496,15 +510,15 @@ export class HinhAnhService {
       });
       if (result.length > 0) {
         const res = result.map((item) => {
-          const {iId, tenHinh, url, moTa, dateUp} = item
+          const { iId, tenHinh, url, moTa, dateUp } = item;
           return {
-            iId, 
-            tenHinh, 
-            url, 
-            moTa, 
-            dateUp: moment(dateUp).format('DD/MM/YYYY')
-          }
-        })
+            iId,
+            tenHinh,
+            url,
+            moTa,
+            dateUp: moment(dateUp).format('DD/MM/YYYY'),
+          };
+        });
         return response(200, 'kết quả tìm kiếm', res);
       } else {
         return response(404, 'not found', null);
